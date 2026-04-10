@@ -91,6 +91,37 @@ def ask(prompt, label=""):
         return ""
 
 
+def ask_with_search(prompt, label=""):
+    """Ask Claude with web search enabled — gets real-time data"""
+    print(f"  🌐 Generating {label} (with web search)...")
+    try:
+        r = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2000,
+            tools=[{
+                "type": "web_search_20250305",
+                "name": "web_search"
+            }],
+            messages=[{"role": "user", "content": prompt}]
+        )
+        # Extract all text blocks — web search returns mixed content types
+        text = "".join(
+            b.text for b in r.content
+            if hasattr(b, "text") and b.type == "text"
+        )
+        searches = sum(
+            1 for b in r.content
+            if hasattr(b, "type") and b.type == "tool_use"
+        )
+        if searches:
+            print(f"  🔍 Performed {searches} web search(es)")
+        print(f"  ✅ Generated ({len(text)} chars)")
+        return text.strip()
+    except Exception as e:
+        print(f"  ❌ Web search failed: {e} — falling back to standard")
+        return ask(prompt, label)
+
+
 def pause(seconds=90):
     print(f"  ⏳ Pausing {seconds}s for rate limit...")
     time.sleep(seconds)
@@ -170,7 +201,7 @@ def log_row(sh, tab, row):
 # ─────────────────────────────────────────
 def run_briefing():
     print("\n📰 SECTION 1 — DAILY NEWS BRIEFING")
-    text = ask(f"""You are AXIS, Ayam Samuel's personal chief of staff. Today is {today}.
+    text = ask_with_search(f"""You are AXIS, Ayam Samuel's personal chief of staff. Today is {today}.
 
 Write a sharp daily news briefing for Ayam Samuel.
 He is MD of Ayamtek — Nigerian digital solutions company building websites,
@@ -225,45 +256,60 @@ End with:
 # ─────────────────────────────────────────
 def run_opportunities_1(sh):
     print("\n🎯 SECTION 2 — OPPORTUNITIES BATCH 1 (1-10)")
-    text = ask(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+    text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
 
-Find 10 specific freelance contracts Ayam can apply to RIGHT NOW.
+Find 10 freelance contracts Ayam can apply to RIGHT NOW that match his EXACT skills.
 
-About Ayam:
-- MD of Ayamtek Nigeria — websites (WordPress, Webflow, Framer),
-  web apps, mobile apps, landing pages, automation (Zapier, Make, n8n),
-  AI integrations, chatbots, UI/UX, IT consulting
-- Remote work globally — $100 minimum per project
-- Payments: Payoneer, Wise, crypto. NOT employment — contracts only.
+AYAM'S VERIFIED SKILLS — only show opportunities matching these:
+✅ Websites: WordPress, Webflow, Framer, HTML/CSS, landing pages
+✅ Web Apps: custom web applications, dashboards, portals
+✅ Automation: Zapier, Make.com, n8n — workflow automation
+✅ AI Integration: chatbots, Claude API, OpenAI API, AI-powered tools
+✅ No-Code/Low-Code: Bubble, Glide, Airtable, Notion integrations
+✅ UI/UX Design: Figma, wireframing, prototyping
+✅ Mobile Apps: cross-platform mobile development
+✅ IT Consulting: digital strategy, systems thinking
+✅ Healthcare Tech: clinical systems, health informatics (bonus fit)
 
-⚠️ STRICT RULES — READ BEFORE SEARCHING:
-1. NO expired opportunities — today is {today}. If deadline has passed, skip it.
-2. ALWAYS state the deadline if one exists — never leave it out
-3. At least 3 results MUST come from dailyremote.com specifically
-4. Find REAL active listings — not homepage links
+❌ DO NOT INCLUDE — Ayam CANNOT do these:
+❌ Native iOS/Android (Swift, Kotlin) — not his stack
+❌ Data Science / Machine Learning engineering
+❌ DevOps, cloud infrastructure, AWS/Azure configuration
+❌ Blockchain / Web3 / smart contracts
+❌ Video editing, animation, motion graphics
+❌ SEO copywriting, content writing
+❌ Physical design (print, packaging, branding only)
+❌ Anything requiring physical presence
+
+⚠️ STRICT RULES:
+1. NO expired opportunities — today is {today}. Deadline passed = skip it.
+2. ALWAYS state the deadline — never leave it out
+3. At least 3 results MUST come from dailyremote.com
+4. Find REAL active listings — verify the URL exists
 
 Search these platforms:
 1. dailyremote.com/remote-jobs/developer — MUST include 3+ from here
-2. dailyremote.com/remote-jobs/design — check this section too
+2. dailyremote.com/remote-jobs/design — check this too
 3. contra.com — web development and automation gigs
-4. peopleperhour.com — Webflow, WordPress, automation jobs
-5. freelancer.com — web development jobs posted this week
+4. peopleperhour.com — Webflow, WordPress, automation
+5. freelancer.com — web development posted this week
 6. himalayas.app — web dev and no-code roles
 7. remotive.com — developer and automation roles
-8. weworkremotely.com — design and programming section
+8. weworkremotely.com — design and programming
 9. flowroles.com — Webflow specific jobs
 
 For each of the 10:
 *[N]. [Job Title] — [Platform]*
-• What: [exactly what client needs — specific]
+• What: [exactly what client needs]
+• Skills match: [which of Ayam's skills this uses — be specific]
 • Budget: [amount or "Not listed"]
-• Deadline: [specific date or "Open — apply now" — NEVER skip this]
-• Fit: [one specific reason Ayam wins this]
-• Apply: [direct URL to the specific job post]
+• Deadline: [specific date or "Open — apply now"]
+• Fit score: [High / Medium — and why]
+• Apply: [direct URL to the job post]
 
 READY TO SEND APPLICATION:
-[Write exact 3-sentence message Ayam copies and sends immediately.
-Personal, specific, human — not corporate.]
+[Exact 3-sentence message. Personal, specific, human — not corporate.
+Reference the specific skill match.]
 
 Slack formatting. *bold* with asterisks.
 
@@ -285,28 +331,41 @@ End with: *More in next message ↓*""", "opportunities 1-10")
 # ─────────────────────────────────────────
 def run_opportunities_2(sh):
     print("\n🎯 SECTION 3 — OPPORTUNITIES BATCH 2 (11-20)")
-    text = ask(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+    text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
 
-Find 10 MORE opportunities for Ayam — beyond job boards.
+Find 10 MORE opportunities for Ayam — grants, accelerators, partnerships.
 
-About Ayam:
-- MD of Ayamtek Nigeria — websites, apps, automation, AI systems
-- RN and RM — understands healthcare
-- Remote work globally — $100+ per project
-- Personal brand: @ayamsamuelxyz
+AYAM'S VERIFIED SKILLS — only show opportunities matching these:
+✅ Websites: WordPress, Webflow, Framer, landing pages
+✅ Web Apps: custom web applications, dashboards, portals
+✅ Automation: Zapier, Make.com, n8n
+✅ AI Integration: chatbots, Claude API, AI-powered tools
+✅ No-Code/Low-Code: Bubble, Airtable, Notion integrations
+✅ UI/UX Design: Figma, wireframing
+✅ Mobile Apps: cross-platform mobile development
+✅ Healthcare Tech: clinical systems, health informatics
+✅ IT Consulting: digital strategy for businesses
+
+❌ DO NOT INCLUDE:
+❌ Native iOS/Android only roles
+❌ Data Science / ML engineering
+❌ DevOps / cloud infrastructure
+❌ Blockchain / Web3
+❌ Video editing / motion graphics
+❌ SEO / content writing only
 
 ⚠️ STRICT RULES:
-1. NO expired opportunities — today is {today}. Deadline passed = skip it completely.
-2. ALWAYS state the deadline clearly — if deadline exists, show it prominently
-3. If application is rolling/open, say "Open — no deadline"
-4. Only include things Ayam can actually apply to TODAY
+1. NO expired opportunities — today is {today}. Deadline passed = skip completely.
+2. ALWAYS show deadline prominently with ⏰
+3. If rolling/open, say "Open — no deadline"
+4. Only include things Ayam can actually do and apply to TODAY
 
 This batch focuses on:
-1. Grants and funding OPEN NOW for African tech founders — NOT TEF (deadline passed)
-2. Accelerator programmes currently accepting applications right now
-3. Agency white-label partnerships — subcontracting web/automation work
-4. LinkedIn or Twitter posts from founders needing a developer NOW
-5. Healthcare organisations needing digital solutions
+1. Grants and funding OPEN NOW for African tech founders
+2. Accelerator programmes currently accepting applications
+3. Agency white-label partnerships — web/automation subcontracting
+4. Healthcare organisations needing digital solutions
+5. Businesses posting on LinkedIn/Twitter needing a developer NOW
 
 For each of the 10:
 *[N]. [Opportunity] — [Source]*
@@ -339,7 +398,7 @@ End with:
 # ─────────────────────────────────────────
 def run_content(briefing, sh):
     print("\n📣 SECTION 4 — PLATFORM CONTENT")
-    text = ask(f"""You are AXIS, Ayam Samuel's content strategist. Today is {today}.
+    text = ask_with_search(f"""You are AXIS, Ayam Samuel's content strategist. Today is {today}.
 
 Based on today's news, write platform content in Ayam's voice.
 
@@ -404,7 +463,7 @@ End with:
 # ─────────────────────────────────────────
 def run_outreach(sh):
     print("\n📨 SECTION 5 — OUTREACH TARGETS")
-    text = ask(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+    text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
 
 Find 5 specific businesses Ayam should cold message TODAY.
 
@@ -506,7 +565,7 @@ End with:
 # ─────────────────────────────────────────
 def run_scholarships(sh):
     print("\n🎓 SECTION 7 — SCHOLARSHIPS")
-    text = ask(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+    text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
 
 Find scholarship opportunities for Ayam Samuel.
 
@@ -576,7 +635,7 @@ End with:
 # ─────────────────────────────────────────
 def run_leadership(sh):
     print("\n🌍 SECTION 8 — LEADERSHIP")
-    text = ask(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+    text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
 
 Find leadership opportunities for Ayam Samuel.
 
@@ -654,7 +713,7 @@ def run_certifications(sh):
         print("  ℹ️  Certifications runs Mon/Wed/Fri/Sun only — skipping")
         return ""
 
-    text = ask(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+    text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
 
 Find certification and learning opportunities for Ayam.
 
@@ -728,7 +787,7 @@ def run_weekly_review(sh):
     if day != "Sunday":
         return ""
     print("\n📊 WEEKLY REVIEW — Sunday")
-    text = ask(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today} — Sunday.
+    text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today} — Sunday.
 
 Write Ayam's weekly review and next week plan.
 
