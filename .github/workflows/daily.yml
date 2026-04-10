@@ -1,0 +1,48 @@
+name: AXIS Morning Briefing
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-axis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create Google service account file
+        run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > axis-bot-service-account.json
+
+      - name: Run AXIS
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BRIEFING_WEBHOOK: ${{ secrets.BRIEFING_WEBHOOK }}
+          JOBS_WEBHOOK: ${{ secrets.JOBS_WEBHOOK }}
+          CONTENT_WEBHOOK: ${{ secrets.CONTENT_WEBHOOK }}
+          FOLLOWUPS_WEBHOOK: ${{ secrets.FOLLOWUPS_WEBHOOK }}
+          SCHOLARSHIPS_WEBHOOK: ${{ secrets.SCHOLARSHIPS_WEBHOOK }}
+          LEADERSHIP_WEBHOOK: ${{ secrets.LEADERSHIP_WEBHOOK }}
+          CERTIFICATIONS_WEBHOOK: ${{ secrets.CERTIFICATIONS_WEBHOOK }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GOOGLE_SERVICE_ACCOUNT: axis-bot-service-account.json
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_CLIENT_TRACKER_ID: ${{ secrets.NOTION_CLIENT_TRACKER_ID }}
+          NOTION_CONTENT_CALENDAR_ID: ${{ secrets.NOTION_CONTENT_CALENDAR_ID }}
+          NOTION_SCHOLARSHIP_ID: ${{ secrets.NOTION_SCHOLARSHIP_ID }}
+          NOTION_TASK_MANAGER_ID: ${{ secrets.NOTION_TASK_MANAGER_ID }}
+          NOTION_CERT_ROADMAP_ID: ${{ secrets.NOTION_CERT_ROADMAP_ID }}
+        run: python run.py
