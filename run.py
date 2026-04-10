@@ -20,7 +20,6 @@ import time
 import smtplib
 import requests
 import anthropic
-from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
@@ -54,10 +53,16 @@ SERVICE_ACCOUNT        = os.getenv("GOOGLE_SERVICE_ACCOUNT")
 SHEET_ID               = os.getenv("GOOGLE_SHEET_ID")
 NOTION_TOKEN           = os.getenv("NOTION_TOKEN")
 
+from datetime import datetime, timedelta, timezone
+
+# Nigeria time — WAT is UTC+1
+WAT = timezone(timedelta(hours=1))
+_now_wat = datetime.now(WAT)
+
 client = anthropic.Anthropic(api_key=KEY)
-today  = datetime.now().strftime("%A, %d %B %Y")
-now    = datetime.now().strftime("%Y-%m-%d %H:%M")
-day    = datetime.now().strftime("%A")
+today  = _now_wat.strftime("%A, %d %B %Y")
+now    = _now_wat.strftime("%Y-%m-%d %H:%M")
+day    = _now_wat.strftime("%A")
 
 
 # ─────────────────────────────────────────
@@ -66,6 +71,9 @@ day    = datetime.now().strftime("%A")
 def send_slack(webhook, text):
     if not webhook:
         print("  ⚠️  No webhook — skipping")
+        return
+    if not text or not text.strip():
+        print("  ⚠️  Empty content — skipping Slack send")
         return
     chunks = [text[i:i+2900] for i in range(0, len(text), 2900)]
     for chunk in chunks:
@@ -97,7 +105,7 @@ def ask_with_search(prompt, label=""):
     try:
         r = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=2000,
+            max_tokens=3000,
             tools=[{
                 "type": "web_search_20250305",
                 "name": "web_search"
@@ -115,6 +123,10 @@ def ask_with_search(prompt, label=""):
         )
         if searches:
             print(f"  🔍 Performed {searches} web search(es)")
+        # If output is empty or too short, fall back to standard
+        if len(text.strip()) < 100:
+            print(f"  ⚠️  Web search output too short — falling back to standard")
+            return ask(prompt, label)
         print(f"  ✅ Generated ({len(text)} chars)")
         return text.strip()
     except Exception as e:
@@ -162,8 +174,22 @@ def get_sheet():
         return None
 
 
+def build_sheet_map(sh):
+    """Build a map of base_name → worksheet object, handling icon prefixes"""
+    ws_map = {}
+    for ws in sh.worksheets():
+        ws_map[ws.title] = ws
+        # Strip icon prefix — e.g. "🎯 Opportunities" → "Opportunities"
+        parts = ws.title.split(" ", 1)
+        if len(parts) == 2 and len(parts[0]) <= 2:
+            base = parts[1].strip()
+            if base not in ws_map:
+                ws_map[base] = ws
+    return ws_map
+
+
 def setup_sheets(sh):
-    existing = [ws.title for ws in sh.worksheets()]
+    ws_map = build_sheet_map(sh)
     tabs = {
         "Opportunities":  ["Date", "Job Title", "Platform", "Budget", "Status",
                            "Application Sent", "Follow Up Date", "Link", "Notes"],
@@ -182,16 +208,33 @@ def setup_sheets(sh):
                            "Outreach Sent", "Responses", "Projects Won", "Notes"]
     }
     for tab_name, headers in tabs.items():
-        if tab_name not in existing:
+        if tab_name not in ws_map:
             ws = sh.add_worksheet(title=tab_name, rows=1000, cols=len(headers))
             ws.append_row(headers)
             print(f"  ✅ Created tab: {tab_name}")
+        else:
+            pass  # Tab already exists — do not recreate
+
+
+# Cache the sheet map per run — only fetches worksheets once
+_sheet_map_cache = None
+
+def get_sheet_map(sh):
+    """Get cached sheet map — only hits Google Sheets API once per run"""
+    global _sheet_map_cache
+    if _sheet_map_cache is None and sh:
+        _sheet_map_cache = build_sheet_map(sh)
+    return _sheet_map_cache or {}
 
 
 def log_row(sh, tab, row):
+    """Log a row using cached sheet map — no repeated API calls"""
     try:
-        ws = sh.worksheet(tab)
-        ws.append_row(row)
+        ws_map = get_sheet_map(sh)
+        if tab in ws_map:
+            ws_map[tab].append_row(row)
+        else:
+            print(f"  ⚠️  Tab '{tab}' not found — skipping log")
     except Exception as e:
         print(f"  ⚠️  Could not log to {tab}: {e}")
 

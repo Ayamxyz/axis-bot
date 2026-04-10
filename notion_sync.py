@@ -6,8 +6,9 @@ Discovers actual property names before writing — handles any schema variation
 
 import os
 import re
+import time
 import requests as req
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,10 +20,14 @@ NOTION_SCHOLARSHIP_ID      = os.getenv("NOTION_SCHOLARSHIP_ID")
 NOTION_TASK_MANAGER_ID     = os.getenv("NOTION_TASK_MANAGER_ID")
 NOTION_CERT_ROADMAP_ID     = os.getenv("NOTION_CERT_ROADMAP_ID")
 
-today_iso = datetime.now().strftime("%Y-%m-%d")
-today_fmt = datetime.now().strftime("%A, %d %B %Y")
-tomorrow  = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-in_30d    = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+# Nigeria time — WAT is UTC+1
+WAT      = timezone(timedelta(hours=1))
+_now_wat = datetime.now(WAT)
+
+today_iso = _now_wat.strftime("%Y-%m-%d")
+today_fmt = _now_wat.strftime("%A, %d %B %Y")
+tomorrow  = (_now_wat + timedelta(days=1)).strftime("%Y-%m-%d")
+in_30d    = (_now_wat + timedelta(days=30)).strftime("%Y-%m-%d")
 
 NOTION_VERSION = "2022-06-28"
 BASE           = "https://api.notion.com/v1"
@@ -228,8 +233,21 @@ def parse_scholarships(text):
 
 
 def parse_content_draft(text):
-    m = re.search(r'\*📌 LINKEDIN\*(.*?)(?=\*🐦|\*📸|\*👥|\Z)', text, re.DOTALL)
-    return m.group(1).strip()[:2000] if m else text[:500]
+    """Extract LinkedIn draft — tries multiple patterns for robustness"""
+    # Try standard format first
+    patterns = [
+        r'\*📌 LINKEDIN\*(.*?)(?=\*🐦|\*📸|\*👥|\*🎵|\*💬|\*📧|\Z)',
+        r'📌 LINKEDIN[:\*]*(.*?)(?=🐦|📸|👥|🎵|💬|📧|\Z)',
+        r'LINKEDIN[:\*\s]+(.*?)(?=TWITTER|X\/|INSTAGRAM|FACEBOOK|THREADS|TIKTOK|\Z)',
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        if m:
+            draft = m.group(1).strip()
+            if len(draft) > 50:  # must have meaningful content
+                return draft[:2000]
+    # Fallback — return first 500 chars of the whole response
+    return text[:500]
 
 
 # ─────────────────────────────────────────
@@ -241,7 +259,7 @@ def add_client(name, url=None, notes=""):
     schema = api_schema(NOTION_CLIENT_TRACKER_ID)
     if not schema:
         return
-    fu = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
+    fu = (_now_wat + timedelta(days=3)).strftime("%Y-%m-%d")
     desired = {
         "Client / Company": p_title(name),
         "Stage":          p_select("🧊 Cold"),
@@ -292,7 +310,7 @@ def add_scholarship(name, org="", url=None, deadline=None,
     if org:
         desired["Organiser / Funder"] = p_text(org)
     if url:
-        desired["LinkedIn"] = p_url(url)
+        desired["Application Link"] = p_url(url)
     if deadline:
         desired["Application Deadline"] = p_date(deadline)
     props = resolve(schema, desired)
@@ -512,6 +530,7 @@ def sync_opportunities(notion_connected, text):
     for item in parse_opportunities(text):
         add_client(name=item["title"], url=item.get("url"), notes=item.get("notes", ""))
         count += 1
+        time.sleep(0.5)  # small delay between Notion writes to avoid rate limits
     return count
 
 
@@ -533,6 +552,7 @@ def sync_scholarships(notion_connected, text):
                         url=item.get("url"), deadline=item.get("deadline"),
                         notes=item.get("notes", ""), prog_type="Scholarship")
         count += 1
+        time.sleep(0.5)
     return count
 
 
@@ -545,21 +565,22 @@ def sync_leadership(notion_connected, text):
                         url=item.get("url"), deadline=item.get("deadline"),
                         notes=item.get("notes", ""), prog_type="Fellowship")
         count += 1
+        time.sleep(0.5)
     return count
 
 
 def sync_followup_tasks(notion_connected):
     if not notion_connected:
         return
-    fu = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
+    fu = (_now_wat + timedelta(days=3)).strftime("%Y-%m-%d")
     add_task(f"Follow up on outreach sent {today_fmt}",
-             "Client Work", "🔴 High", fu,
+             "💼 Client Work", "🔴 Critical", fu,
              "Check #followups for follow-up messages")
     add_task(f"Apply to 3+ opportunities — {today_fmt}",
-             "Client Work", "🔴 High", today_iso,
+             "💼 Client Work", "🔴 Critical", today_iso,
              "See Slack #opportunities for 20 leads")
     add_task(f"Post content on 2+ platforms — {today_fmt}",
-             "Content", "🟡 Medium", today_iso,
+             "📱 Content", "🟡 Medium", today_iso,
              "See Slack #content for all 8 platform drafts")
 
 
