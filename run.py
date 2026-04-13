@@ -139,16 +139,18 @@ def pause(seconds=90):
     time.sleep(seconds)
 
 
-def send_email(subject, body):
+def send_email(subject, html_body, plain_body=""):
     if not GMAIL_ADDRESS or not GMAIL_PASSWORD:
         print("  ⚠️  Gmail not configured — skipping")
         return
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"]    = GMAIL_ADDRESS
+        msg["From"]    = f"AXIS — Ayam Samuel <{GMAIL_ADDRESS}>"
         msg["To"]      = GMAIL_ADDRESS
-        msg.attach(MIMEText(body, "plain"))
+        if plain_body:
+            msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(GMAIL_ADDRESS, GMAIL_PASSWORD)
             server.sendmail(GMAIL_ADDRESS, GMAIL_ADDRESS, msg.as_string())
@@ -898,22 +900,211 @@ End with:
 
 
 # ─────────────────────────────────────────
+# EMAIL — SECTION METADATA
+# ─────────────────────────────────────────
+SECTION_META = {
+    "NEWS BRIEFING":        {"icon": "🚀", "colour": "#1A2E54", "label": "Daily Intelligence"},
+    "OPPORTUNITIES (1-10)": {"icon": "🎯", "colour": "#1A2E54", "label": "Live Opportunities"},
+    "OPPORTUNITIES (11-20)":{"icon": "🎯", "colour": "#1A2E54", "label": "More Opportunities"},
+    "PLATFORM CONTENT":     {"icon": "📣", "colour": "#9EA1DC", "label": "Content Drafts"},
+    "OUTREACH TARGETS":     {"icon": "📨", "colour": "#1A2E54", "label": "Outreach Targets"},
+    "FOLLOW-UP REMINDERS":  {"icon": "⏰", "colour": "#C7A27F", "label": "Follow Ups"},
+    "SCHOLARSHIPS":         {"icon": "🎓", "colour": "#1A2E54", "label": "Scholarships"},
+    "LEADERSHIP":           {"icon": "🌍", "colour": "#9EA1DC", "label": "Leadership"},
+    "CERTIFICATIONS":       {"icon": "📜", "colour": "#1A2E54", "label": "Certifications"},
+}
+
+
+def clean_for_email(text):
+    """Convert Slack markdown to readable HTML"""
+    if not text:
+        return ""
+    import re as _re
+    text = _re.sub(r'[━─]{3,}', '', text)
+    text = _re.sub(r'\*([^*\n]+)\*', r'<strong>\1</strong>', text)
+    text = _re.sub(r'_([^_\n]+)_', r'<em>\1</em>', text)
+    text = _re.sub(
+        r'(https?://[^\s<>"]+)',
+        r'<a href="\1" style="color:#9EA1DC;text-decoration:none;word-break:break-all;">\1</a>',
+        text
+    )
+    text = text.replace('\n', '<br>')
+    text = _re.sub(r'(<br>){3,}', '<br><br>', text)
+    return text.strip()
+
+
+def build_section_card(label, content):
+    """Build one styled section card"""
+    meta   = SECTION_META.get(label, {"icon": "📌", "colour": "#1A2E54", "label": label})
+    cleaned = clean_for_email(content)
+    return f"""
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+      <tr>
+        <td style="background:#ffffff;border-radius:12px;overflow:hidden;
+                   border-left:4px solid {meta['colour']};
+                   box-shadow:0 2px 8px rgba(26,46,84,0.08);">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="background:{meta['colour']};padding:12px 22px;">
+                <span style="font-family:Arial,sans-serif;font-size:12px;
+                             font-weight:700;color:#F7F3ED;letter-spacing:1px;
+                             text-transform:uppercase;">
+                  {meta['icon']}&nbsp;&nbsp;{meta['label']}
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 22px 22px 22px;font-family:Arial,sans-serif;
+                         font-size:14px;line-height:1.75;color:#0A0A0B;">
+                {cleaned}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>"""
+
+
+def build_html_email(sections, labels):
+    """Build the full professional HTML newsletter"""
+    cards = ""
+    for label, content in zip(labels, sections):
+        if content and content.strip():
+            cards += build_section_card(label, content)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AXIS — {today}</title>
+</head>
+<body style="margin:0;padding:0;background:#F7F3ED;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F3ED;padding:28px 16px;">
+  <tr><td align="center">
+  <table width="620" cellpadding="0" cellspacing="0" style="max-width:620px;width:100%;">
+
+    <!-- HEADER -->
+    <tr><td style="background:#1A2E54;border-radius:14px 14px 0 0;padding:36px 36px 28px;text-align:center;">
+      <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:4px;
+                color:#9EA1DC;text-transform:uppercase;font-family:Arial,sans-serif;">
+        Personal Brand System
+      </p>
+      <h1 style="margin:0 0 6px;font-size:36px;font-weight:700;color:#F7F3ED;
+                 letter-spacing:-1px;font-family:Arial,sans-serif;">
+        AXIS
+      </h1>
+      <p style="margin:0 0 20px;font-size:13px;color:#9EA1DC;font-family:Arial,sans-serif;">
+        {today}
+      </p>
+      <table cellpadding="0" cellspacing="0" align="center">
+        <tr><td style="background:rgba(158,161,220,0.12);border:1px solid rgba(158,161,220,0.4);
+                       border-radius:999px;padding:7px 20px;">
+          <span style="font-size:12px;color:#F7F3ED;font-weight:600;font-family:Arial,sans-serif;">
+            Good morning, Ayam — your briefing is ready
+          </span>
+        </td></tr>
+      </table>
+    </td></tr>
+
+    <!-- STATS BAR -->
+    <tr><td style="background:#0A0A0B;padding:12px 36px;">
+      <p style="margin:0;text-align:center;font-family:Arial,sans-serif;
+                font-size:11px;color:#9EA1DC;font-weight:600;letter-spacing:0.5px;">
+        🎯 20 Opportunities &nbsp;·&nbsp; 📣 8 Platform Drafts &nbsp;·&nbsp;
+        🎓 Scholarships &nbsp;·&nbsp; 🌍 Leadership &nbsp;·&nbsp; 📜 Certifications
+      </p>
+    </td></tr>
+
+    <!-- CONTENT -->
+    <tr><td style="background:#F7F3ED;padding:28px 20px 8px;">
+      {cards}
+    </td></tr>
+
+    <!-- ACTION BUTTONS -->
+    <tr><td style="background:#F7F3ED;padding:4px 20px 28px;text-align:center;">
+      <table cellpadding="0" cellspacing="0" align="center">
+        <tr>
+          <td style="padding:0 5px;">
+            <a href="https://ayamtek.xyz"
+               style="display:inline-block;background:#1A2E54;color:#F7F3ED;
+                      font-family:Arial,sans-serif;font-size:12px;font-weight:700;
+                      padding:10px 18px;border-radius:6px;text-decoration:none;">
+              🌐 ayamtek.xyz
+            </a>
+          </td>
+          <td style="padding:0 5px;">
+            <a href="https://znap.link/ayamsamuel"
+               style="display:inline-block;background:#9EA1DC;color:#0A0A0B;
+                      font-family:Arial,sans-serif;font-size:12px;font-weight:700;
+                      padding:10px 18px;border-radius:6px;text-decoration:none;">
+              🔗 All Links
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+
+    <!-- MORNING CHECKLIST -->
+    <tr><td style="padding:0 20px 28px;">
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="background:#1A2E54;border-radius:12px;">
+        <tr><td style="padding:22px 26px;">
+          <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;
+                     font-weight:700;letter-spacing:2px;color:#9EA1DC;text-transform:uppercase;">
+            Your Morning Actions
+          </p>
+          <p style="margin:0 0 7px;font-family:Arial,sans-serif;font-size:13px;
+                     color:#F7F3ED;line-height:1.5;">
+            ☐ &nbsp;Check Notion Task Manager for today
+          </p>
+          <p style="margin:0 0 7px;font-family:Arial,sans-serif;font-size:13px;
+                     color:#F7F3ED;line-height:1.5;">
+            ☐ &nbsp;Apply to 3 opportunities before noon
+          </p>
+          <p style="margin:0 0 7px;font-family:Arial,sans-serif;font-size:13px;
+                     color:#F7F3ED;line-height:1.5;">
+            ☐ &nbsp;Send 5 outreach messages
+          </p>
+          <p style="margin:0;font-family:Arial,sans-serif;font-size:13px;
+                     color:#F7F3ED;line-height:1.5;">
+            ☐ &nbsp;Post on 2 platforms
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+
+    <!-- FOOTER -->
+    <tr><td style="background:#0A0A0B;border-radius:0 0 14px 14px;padding:24px 36px;text-align:center;">
+      <p style="margin:0 0 3px;font-family:Arial,sans-serif;font-size:15px;
+                 font-weight:700;color:#F7F3ED;">
+        Ayam Samuel
+      </p>
+      <p style="margin:0 0 14px;font-family:Arial,sans-serif;font-size:12px;color:#9EA1DC;">
+        Managing Director, Ayamtek &nbsp;·&nbsp; RN, RM &nbsp;·&nbsp; @ayamsamuelxyz
+      </p>
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;
+                 color:rgba(158,161,220,0.5);">
+        Generated by AXIS at {now} WAT &nbsp;·&nbsp; ayamtek.xyz
+      </p>
+    </td></tr>
+
+  </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
+
+
+# ─────────────────────────────────────────
 # EMAIL DIGEST
 # ─────────────────────────────────────────
 def send_full_email(sections, labels):
     print("\n📧 SENDING EMAIL DIGEST")
-    subject = f"AXIS Daily Briefing — {today}"
-    divider = "\n" + "─" * 50 + "\n"
-    body = f"AXIS DAILY BRIEFING\n{today}\nGenerated: {now}\n{'=' * 50}\n"
-
-    for label, content in zip(labels, sections):
-        if content:
-            body += f"\n{label}\n{divider}{content}\n"
-
-    body += f"\n{'=' * 50}\n"
-    body += "Generated by AXIS — Ayam Samuel's Personal Brand System\n"
-    body += "ayamtek.xyz | @ayamsamuelxyz\n"
-    send_email(subject, body)
+    subject   = f"AXIS Daily Briefing — {today}"
+    html_body = build_html_email(sections, labels)
+    plain_body = f"AXIS Daily Briefing — {today}\nGenerated: {now}\nOpen in a modern email client to view the full newsletter."
+    send_email(subject, html_body, plain_body)
 
 
 # ─────────────────────────────────────────
