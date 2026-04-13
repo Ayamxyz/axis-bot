@@ -68,6 +68,22 @@ day    = _now_wat.strftime("%A")
 # ─────────────────────────────────────────
 # UTILITIES
 # ─────────────────────────────────────────
+def clean_slack_output(text):
+    """Strip asterisk bold formatting and clean up AI artifacts from Slack output"""
+    if not text:
+        return text
+    import re as _re
+    # Remove bold asterisks — *text* → text
+    text = _re.sub(r'\*([^*\n]+)\*', r'\1', text)
+    # Remove standalone asterisks
+    text = _re.sub(r'(?<!\w)\*(?!\w)', '', text)
+    # Remove excessive divider lines
+    text = _re.sub(r'[━─═]{3,}', '───', text)
+    # Clean up excessive blank lines
+    text = _re.sub(r'\n{4,}', '\n\n', text)
+    return text.strip()
+
+
 def send_slack(webhook, text):
     if not webhook:
         print("  ⚠️  No webhook — skipping")
@@ -75,6 +91,7 @@ def send_slack(webhook, text):
     if not text or not text.strip():
         print("  ⚠️  Empty content — skipping Slack send")
         return
+    text   = clean_slack_output(text)
     chunks = [text[i:i+2900] for i in range(0, len(text), 2900)]
     for chunk in chunks:
         r = requests.post(webhook, json={"text": chunk})
@@ -281,7 +298,7 @@ One specific new tool launched this week. Name it. What it does. Link.
 
 For each: *bold header*, bold headline, 2 sentence summary,
 1 sentence why it matters to Ayam specifically.
-Slack formatting. Under 3000 characters total.
+Keep under 3000 characters total.
 
 Start with:
 *━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
@@ -356,7 +373,6 @@ READY TO SEND APPLICATION:
 [Exact 3-sentence message. Personal, specific, human — not corporate.
 Reference the specific skill match.]
 
-Slack formatting. *bold* with asterisks.
 
 Start with:
 *━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
@@ -423,7 +439,6 @@ For each of the 10:
 PITCH MESSAGE:
 [Exact 3-sentence pitch Ayam copies immediately. Personal, specific.]
 
-Slack formatting. *bold* with asterisks.
 
 Start with:
 *━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
@@ -535,7 +550,6 @@ COLD MESSAGE TO SEND:
 [Exact DM or email. Under 60 words. Personal and specific.
 Human — not a salesperson. Reference something specific.]
 
-Slack formatting. *bold* with asterisks.
 
 Start with:
 *━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
@@ -590,7 +604,6 @@ Write today's follow-up reminders and accountability check.
 80% of contracts go to the person who followed up.
 Not the person who applied first.
 
-Slack formatting. *bold* headers.
 
 Start with:
 *━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
@@ -656,7 +669,6 @@ For each scholarship:
 • Why Ayam fits: [one sentence — reference WHO/NUNSA/Ayamtek specifically]
 • Apply: [direct URL to scholarship page]
 
-Slack formatting. *bold* with asterisks.
 
 Start with:
 *━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
@@ -805,7 +817,6 @@ Primary: IBM Data Science Professional Certificate — Coursera
 Secondary: WHO OpenWHO digital health courses — free
 These directly support the Health Data Science MSc application.
 
-Slack formatting. *bold* with asterisks.
 
 Start with:
 *━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
@@ -882,7 +893,6 @@ This week: Complete [X] modules
 [One sharp sentence about what matters most this week.
 Real and specific — not motivational fluff.]
 
-Slack formatting. *bold* headers.
 
 Start with:
 *━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
@@ -966,11 +976,27 @@ def build_section_card(label, content):
 
 
 def build_html_email(sections, labels):
-    """Build the full professional HTML newsletter"""
-    cards = ""
-    for label, content in zip(labels, sections):
-        if content and content.strip():
-            cards += build_section_card(label, content)
+    """Build clean monochrome single-container HTML newsletter"""
+
+    def make_section(label, content):
+        meta    = SECTION_META.get(label, {"icon": "📌", "colour": "#1A2E54", "label": label})
+        cleaned = clean_for_email(content)
+        return f"""
+        <div style="margin-bottom:32px;padding-bottom:32px;
+                    border-bottom:1px solid #e8e5e0;">
+          <p style="margin:0 0 10px;font-size:10px;font-weight:700;
+                     letter-spacing:2.5px;text-transform:uppercase;color:#666;">
+            {meta['icon']}&nbsp;&nbsp;{meta['label']}
+          </p>
+          <div style="font-size:14px;line-height:1.8;color:#1a1a1a;">
+            {cleaned}
+          </div>
+        </div>"""
+
+    sections_html = ""
+    for label, content_text in zip(labels, sections):
+        if content_text and content_text.strip():
+            sections_html += make_section(label, content_text)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -979,119 +1005,88 @@ def build_html_email(sections, labels):
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>AXIS — {today}</title>
 </head>
-<body style="margin:0;padding:0;background:#F7F3ED;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F3ED;padding:28px 16px;">
-  <tr><td align="center">
-  <table width="620" cellpadding="0" cellspacing="0" style="max-width:620px;width:100%;">
+<body style="margin:0;padding:0;background:#f4f1ec;font-family:Georgia,serif;">
 
-    <!-- HEADER -->
-    <tr><td style="background:#1A2E54;border-radius:14px 14px 0 0;padding:36px 36px 28px;text-align:center;">
-      <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:4px;
-                color:#9EA1DC;text-transform:uppercase;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:40px auto;background:#ffffff;
+              border-radius:4px;overflow:hidden;">
+
+    <!-- Header -->
+    <div style="background:#111111;padding:40px 48px 36px;">
+      <p style="margin:0 0 6px;font-family:Arial,sans-serif;font-size:10px;
+                 font-weight:700;letter-spacing:4px;text-transform:uppercase;
+                 color:#888888;">
         Personal Brand System
       </p>
-      <h1 style="margin:0 0 6px;font-size:36px;font-weight:700;color:#F7F3ED;
-                 letter-spacing:-1px;font-family:Arial,sans-serif;">
+      <h1 style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:28px;
+                  font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
         AXIS
       </h1>
-      <p style="margin:0 0 20px;font-size:13px;color:#9EA1DC;font-family:Arial,sans-serif;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:13px;color:#888888;">
         {today}
       </p>
-      <table cellpadding="0" cellspacing="0" align="center">
-        <tr><td style="background:rgba(158,161,220,0.12);border:1px solid rgba(158,161,220,0.4);
-                       border-radius:999px;padding:7px 20px;">
-          <span style="font-size:12px;color:#F7F3ED;font-weight:600;font-family:Arial,sans-serif;">
-            Good morning, Ayam — your briefing is ready
-          </span>
-        </td></tr>
-      </table>
-    </td></tr>
+    </div>
 
-    <!-- STATS BAR -->
-    <tr><td style="background:#0A0A0B;padding:12px 36px;">
-      <p style="margin:0;text-align:center;font-family:Arial,sans-serif;
-                font-size:11px;color:#9EA1DC;font-weight:600;letter-spacing:0.5px;">
-        🎯 20 Opportunities &nbsp;·&nbsp; 📣 8 Platform Drafts &nbsp;·&nbsp;
-        🎓 Scholarships &nbsp;·&nbsp; 🌍 Leadership &nbsp;·&nbsp; 📜 Certifications
+    <!-- Body -->
+    <div style="padding:40px 48px 8px;">
+      {sections_html}
+    </div>
+
+    <!-- Checklist -->
+    <div style="margin:0 48px 32px;padding:24px;background:#f9f7f4;border-radius:4px;">
+      <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;
+                 font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#888;">
+        Morning Actions
       </p>
-    </td></tr>
+      <p style="margin:0 0 6px;font-size:13px;font-family:Arial,sans-serif;
+                 color:#333;line-height:1.6;">
+        ☐ &nbsp;Check Notion Task Manager
+      </p>
+      <p style="margin:0 0 6px;font-size:13px;font-family:Arial,sans-serif;
+                 color:#333;line-height:1.6;">
+        ☐ &nbsp;Apply to 3 opportunities before noon
+      </p>
+      <p style="margin:0 0 6px;font-size:13px;font-family:Arial,sans-serif;
+                 color:#333;line-height:1.6;">
+        ☐ &nbsp;Send 5 outreach messages
+      </p>
+      <p style="margin:0;font-size:13px;font-family:Arial,sans-serif;
+                 color:#333;line-height:1.6;">
+        ☐ &nbsp;Post on 2 platforms
+      </p>
+    </div>
 
-    <!-- CONTENT -->
-    <tr><td style="background:#F7F3ED;padding:28px 20px 8px;">
-      {cards}
-    </td></tr>
+    <!-- Links -->
+    <div style="padding:0 48px 32px;text-align:left;">
+      <a href="https://ayamtek.xyz"
+         style="display:inline-block;margin-right:12px;font-family:Arial,sans-serif;
+                font-size:12px;font-weight:700;color:#111111;text-decoration:none;
+                border-bottom:2px solid #111111;padding-bottom:2px;">
+        ayamtek.xyz
+      </a>
+      <a href="https://znap.link/ayamsamuel"
+         style="display:inline-block;font-family:Arial,sans-serif;
+                font-size:12px;font-weight:700;color:#111111;text-decoration:none;
+                border-bottom:2px solid #111111;padding-bottom:2px;">
+        All Links
+      </a>
+    </div>
 
-    <!-- ACTION BUTTONS -->
-    <tr><td style="background:#F7F3ED;padding:4px 20px 28px;text-align:center;">
-      <table cellpadding="0" cellspacing="0" align="center">
-        <tr>
-          <td style="padding:0 5px;">
-            <a href="https://ayamtek.xyz"
-               style="display:inline-block;background:#1A2E54;color:#F7F3ED;
-                      font-family:Arial,sans-serif;font-size:12px;font-weight:700;
-                      padding:10px 18px;border-radius:6px;text-decoration:none;">
-              🌐 ayamtek.xyz
-            </a>
-          </td>
-          <td style="padding:0 5px;">
-            <a href="https://znap.link/ayamsamuel"
-               style="display:inline-block;background:#9EA1DC;color:#0A0A0B;
-                      font-family:Arial,sans-serif;font-size:12px;font-weight:700;
-                      padding:10px 18px;border-radius:6px;text-decoration:none;">
-              🔗 All Links
-            </a>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-
-    <!-- MORNING CHECKLIST -->
-    <tr><td style="padding:0 20px 28px;">
-      <table width="100%" cellpadding="0" cellspacing="0"
-             style="background:#1A2E54;border-radius:12px;">
-        <tr><td style="padding:22px 26px;">
-          <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;
-                     font-weight:700;letter-spacing:2px;color:#9EA1DC;text-transform:uppercase;">
-            Your Morning Actions
-          </p>
-          <p style="margin:0 0 7px;font-family:Arial,sans-serif;font-size:13px;
-                     color:#F7F3ED;line-height:1.5;">
-            ☐ &nbsp;Check Notion Task Manager for today
-          </p>
-          <p style="margin:0 0 7px;font-family:Arial,sans-serif;font-size:13px;
-                     color:#F7F3ED;line-height:1.5;">
-            ☐ &nbsp;Apply to 3 opportunities before noon
-          </p>
-          <p style="margin:0 0 7px;font-family:Arial,sans-serif;font-size:13px;
-                     color:#F7F3ED;line-height:1.5;">
-            ☐ &nbsp;Send 5 outreach messages
-          </p>
-          <p style="margin:0;font-family:Arial,sans-serif;font-size:13px;
-                     color:#F7F3ED;line-height:1.5;">
-            ☐ &nbsp;Post on 2 platforms
-          </p>
-        </td></tr>
-      </table>
-    </td></tr>
-
-    <!-- FOOTER -->
-    <tr><td style="background:#0A0A0B;border-radius:0 0 14px 14px;padding:24px 36px;text-align:center;">
-      <p style="margin:0 0 3px;font-family:Arial,sans-serif;font-size:15px;
-                 font-weight:700;color:#F7F3ED;">
+    <!-- Footer -->
+    <div style="background:#111111;padding:24px 48px;">
+      <p style="margin:0 0 2px;font-family:Arial,sans-serif;font-size:13px;
+                 font-weight:700;color:#ffffff;">
         Ayam Samuel
       </p>
-      <p style="margin:0 0 14px;font-family:Arial,sans-serif;font-size:12px;color:#9EA1DC;">
+      <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:11px;color:#888888;">
         Managing Director, Ayamtek &nbsp;·&nbsp; RN, RM &nbsp;·&nbsp; @ayamsamuelxyz
       </p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;
-                 color:rgba(158,161,220,0.5);">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;color:#555555;">
         Generated by AXIS at {now} WAT &nbsp;·&nbsp; ayamtek.xyz
       </p>
-    </td></tr>
+    </div>
 
-  </table>
-  </td></tr>
-</table>
+  </div>
+
 </body>
 </html>"""
 
