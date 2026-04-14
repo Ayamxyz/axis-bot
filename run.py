@@ -69,18 +69,28 @@ day    = _now_wat.strftime("%A")
 # UTILITIES
 # ─────────────────────────────────────────
 def clean_slack_output(text):
-    """Strip asterisk bold formatting and clean up AI artifacts from Slack output"""
+    """Strip all AI formatting artifacts from Slack output"""
     if not text:
         return text
     import re as _re
-    # Remove bold asterisks — *text* → text
+    # Remove double asterisks **text** first
+    text = _re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    # Remove single asterisks *text*
     text = _re.sub(r'\*([^*\n]+)\*', r'\1', text)
-    # Remove standalone asterisks
+    # Remove remaining lone asterisks
     text = _re.sub(r'(?<!\w)\*(?!\w)', '', text)
-    # Remove excessive divider lines
-    text = _re.sub(r'[━─═]{3,}', '───', text)
-    # Clean up excessive blank lines
-    text = _re.sub(r'\n{4,}', '\n\n', text)
+    # Remove long divider lines (━ ─ = -)
+    text = _re.sub(r'[━─═\-]{4,}', '', text)
+    # Remove markdown --- separators
+    text = _re.sub(r'(?m)^---+$', '', text)
+    # Remove > blockquote markers
+    text = _re.sub(r'(?m)^>\s*', '', text)
+    # Remove em dashes and long hyphens
+    text = text.replace('—', '-').replace('–', '-')
+    # Clean trailing spaces per line
+    text = _re.sub(r' +\n', '\n', text)
+    # Max two consecutive blank lines
+    text = _re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 
 
@@ -265,6 +275,17 @@ def run_briefing():
     print("\n📰 SECTION 1 — DAILY NEWS BRIEFING")
     text = ask_with_search(f"""You are AXIS, Ayam Samuel's personal chief of staff. Today is {today}.
 
+WRITING RULES — follow strictly:
+- Write in clean, plain British English. No asterisks. No markdown. No em dashes.
+- No divider lines of any kind (no ---, no ===, no ***).
+- No bold or italic markers.
+- No AI preamble such as "Let me compile" or "Here are" or "Certainly".
+- Go straight into the content. Start with the first item directly.
+- Use numbered lists (1. 2. 3.) for multiple items, not bullet symbols.
+- Separate sections with a single blank line only.
+- Write as a sharp, informed human assistant — not a language model.
+
+
 Write a sharp daily news briefing for Ayam Samuel.
 He is MD of Ayamtek — Nigerian digital solutions company building websites,
 web apps, mobile apps, automation systems, and AI integrations for global clients.
@@ -301,13 +322,7 @@ For each: *bold header*, bold headline, 2 sentence summary,
 Keep under 3000 characters total.
 
 Start with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*🚀 AXIS DAILY BRIEFING — {today}*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-End with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*Ready. What do you want to work on first?*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*""", "news briefing")
+""", "news briefing")
 
     send_slack(BRIEFING_WEBHOOK, text)
     return text
@@ -319,6 +334,17 @@ End with:
 def run_opportunities_1(sh):
     print("\n🎯 SECTION 2 — OPPORTUNITIES BATCH 1 (1-10)")
     text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+
+WRITING RULES — follow strictly:
+- Write in clean, plain British English. No asterisks. No markdown. No em dashes.
+- No divider lines of any kind (no ---, no ===, no ***).
+- No bold or italic markers.
+- No AI preamble such as "Let me compile" or "Here are" or "Certainly".
+- Go straight into the content. Start with the first item directly.
+- Use numbered lists (1. 2. 3.) for multiple items, not bullet symbols.
+- Separate sections with a single blank line only.
+- Write as a sharp, informed human assistant — not a language model.
+
 
 Find 10 freelance contracts Ayam can apply to RIGHT NOW that match his EXACT skills.
 
@@ -375,9 +401,6 @@ Reference the specific skill match.]
 
 
 Start with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*🎯 LIVE OPPORTUNITIES — {today} (1 of 2)*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
 End with: *More in next message ↓*""", "opportunities 1-10")
 
     send_slack(JOBS_WEBHOOK, text)
@@ -393,6 +416,17 @@ End with: *More in next message ↓*""", "opportunities 1-10")
 def run_opportunities_2(sh):
     print("\n🎯 SECTION 3 — OPPORTUNITIES BATCH 2 (11-20)")
     text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+
+WRITING RULES — follow strictly:
+- Write in clean, plain British English. No asterisks. No markdown. No em dashes.
+- No divider lines of any kind (no ---, no ===, no ***).
+- No bold or italic markers.
+- No AI preamble such as "Let me compile" or "Here are" or "Certainly".
+- Go straight into the content. Start with the first item directly.
+- Use numbered lists (1. 2. 3.) for multiple items, not bullet symbols.
+- Separate sections with a single blank line only.
+- Write as a sharp, informed human assistant — not a language model.
+
 
 Find 10 MORE opportunities for Ayam — grants, accelerators, partnerships.
 
@@ -441,13 +475,7 @@ PITCH MESSAGE:
 
 
 Start with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*🎯 MORE OPPORTUNITIES — {today} (2 of 2)*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-End with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*20 leads total. Pick 3. Apply today.*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*""", "opportunities 11-20")
+""", "opportunities 11-20")
 
     send_slack(JOBS_WEBHOOK, text)
     return text
@@ -459,6 +487,17 @@ End with:
 def run_content(briefing, sh):
     print("\n📣 SECTION 4 — PLATFORM CONTENT")
     text = ask_with_search(f"""You are AXIS, Ayam Samuel's content strategist. Today is {today}.
+
+WRITING RULES — follow strictly:
+- Write in clean, plain British English. No asterisks. No markdown. No em dashes.
+- No divider lines of any kind (no ---, no ===, no ***).
+- No bold or italic markers.
+- No AI preamble such as "Let me compile" or "Here are" or "Certainly".
+- Go straight into the content. Start with the first item directly.
+- Use numbered lists (1. 2. 3.) for multiple items, not bullet symbols.
+- Separate sections with a single blank line only.
+- Write as a sharp, informed human assistant — not a language model.
+
 
 Based on today's news, write platform content in Ayam's voice.
 
@@ -474,41 +513,33 @@ AYAM'S VOICE:
 
 Pick ONE most relevant idea from today's briefing and write:
 
-*📌 LINKEDIN* (150-200 words)
+LINKEDIN (150-200 words)
 Thoughtful, professional but human. Story angle. End with question.
 
-*🐦 X / TWITTER* (under 280 characters)
+X / TWITTER (under 280 characters)
 Sharp, punchy, one strong take.
 
-*📸 INSTAGRAM CAPTION* (100-150 words)
+INSTAGRAM CAPTION (100-150 words)
 Personal, warm. Strong hook first. CTA at end. 5 hashtags on last line.
 
-*👥 FACEBOOK* (150-200 words)
+FACEBOOK (150-200 words)
 Fuller, more personal version.
 
-*🧵 THREADS* (2-3 sentences)
+THREADS (2-3 sentences)
 Casual, real, thinking out loud.
 
-*🎵 TIKTOK / REELS SCRIPT*
+TIKTOK / REELS SCRIPT
 Hook (3 seconds) + 3 talking points + CTA
 
-*💬 WHATSAPP STATUS* (under 100 characters)
+WHATSAPP STATUS (under 100 characters)
 Personal and warm.
 
-*📧 SUBSTACK HOOK* (50-75 words)
+SUBSTACK HOOK (50-75 words)
 Opening paragraph. Deep and thoughtful.
 
 Write in first person. Authentic. Never corporate.
 
-Start with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*📣 CONTENT FOR TODAY — {today}*
-*Core idea: [one line summary]*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-End with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*Review, adjust your voice, post. Takes 10 minutes.*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*""", "platform content")
+""", "platform content")
 
     send_slack(CONTENT_WEBHOOK, text)
     if sh:
@@ -524,6 +555,17 @@ End with:
 def run_outreach(sh):
     print("\n📨 SECTION 5 — OUTREACH TARGETS")
     text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+
+WRITING RULES — follow strictly:
+- Write in clean, plain British English. No asterisks. No markdown. No em dashes.
+- No divider lines of any kind (no ---, no ===, no ***).
+- No bold or italic markers.
+- No AI preamble such as "Let me compile" or "Here are" or "Certainly".
+- Go straight into the content. Start with the first item directly.
+- Use numbered lists (1. 2. 3.) for multiple items, not bullet symbols.
+- Separate sections with a single blank line only.
+- Write as a sharp, informed human assistant — not a language model.
+
 
 Find 5 specific businesses Ayam should cold message TODAY.
 
@@ -551,15 +593,7 @@ COLD MESSAGE TO SEND:
 Human — not a salesperson. Reference something specific.]
 
 
-Start with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*📨 OUTREACH TARGETS — {today}*
-*5 businesses to message. Takes 20 minutes.*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-End with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*Send all 5 before noon. Follow up in 3 days.*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*""", "outreach targets")
+""", "outreach targets")
 
     send_slack(CONTENT_WEBHOOK, text)
     if sh:
@@ -579,40 +613,33 @@ def run_followups():
 
 Write today's follow-up reminders and accountability check.
 
-*FOLLOW-UP RULE:*
+FOLLOW-UP RULES
 3 days → gentle check-in
 7 days → more direct
 14 days → final attempt then close
 
-*TEMPLATE 1 — 3-DAY FOLLOW-UP:*
+Template 1 — 3-day follow-up:
 [2 sentences. Natural, not pushy. References original message.]
 
-*TEMPLATE 2 — 7-DAY FOLLOW-UP:*
+Template 2 — 7-day follow-up:
 [2 sentences. Slightly more direct. Adds small new hook.]
 
-*TEMPLATE 3 — 14-DAY FINAL:*
+Template 3 — 14-day final message:
 [2 sentences. Professional close. Leaves door open.]
 
-*TODAY'S ACCOUNTABILITY CHECK:*
+Accountability check for today:
 □ Applied to 3+ opportunities yesterday?
 □ Posted content on at least 2 platforms?
 □ Sent 5 outreach messages?
 □ Any responses to follow up on?
 □ Google Sheets tracker updated?
 
-*REMEMBER:*
-80% of contracts go to the person who followed up.
+Note: 80% of contracts go to the person who followed up.
 Not the person who applied first.
 
 
 Start with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*⏰ FOLLOW-UP REMINDERS — {today}*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-End with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*Update your tracker. Money is in the follow-up.*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*""", "follow-up reminders")
+""", "follow-up reminders")
 
     send_slack(FOLLOWUPS_WEBHOOK, text)
     return text
@@ -624,6 +651,17 @@ End with:
 def run_scholarships(sh):
     print("\n🎓 SECTION 7 — SCHOLARSHIPS")
     text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+
+WRITING RULES — follow strictly:
+- Write in clean, plain British English. No asterisks. No markdown. No em dashes.
+- No divider lines of any kind (no ---, no ===, no ***).
+- No bold or italic markers.
+- No AI preamble such as "Let me compile" or "Here are" or "Certainly".
+- Go straight into the content. Start with the first item directly.
+- Use numbered lists (1. 2. 3.) for multiple items, not bullet symbols.
+- Separate sections with a single blank line only.
+- Write as a sharp, informed human assistant — not a language model.
+
 
 Find scholarship opportunities for Ayam Samuel.
 
@@ -671,13 +709,7 @@ For each scholarship:
 
 
 Start with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*🎓 SCHOLARSHIP ALERTS — {today}*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-End with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*Check deadlines. Apply to everything you qualify for.*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*""", "scholarships")
+""", "scholarships")
 
     send_slack(SCHOLARSHIPS_WEBHOOK, text)
     if sh:
@@ -693,6 +725,17 @@ End with:
 def run_leadership(sh):
     print("\n🌍 SECTION 8 — LEADERSHIP")
     text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+
+WRITING RULES — follow strictly:
+- Write in clean, plain British English. No asterisks. No markdown. No em dashes.
+- No divider lines of any kind (no ---, no ===, no ***).
+- No bold or italic markers.
+- No AI preamble such as "Let me compile" or "Here are" or "Certainly".
+- Go straight into the content. Start with the first item directly.
+- Use numbered lists (1. 2. 3.) for multiple items, not bullet symbols.
+- Separate sections with a single blank line only.
+- Write as a sharp, informed human assistant — not a language model.
+
 
 Find leadership opportunities for Ayam Samuel.
 
@@ -730,7 +773,7 @@ HubSpot Academy, Google Digital Garage,
 Meta Blueprint, free online masterclasses
 
 For each of the 8:
-*[N]. [Programme Name] — [Organisation]*
+[N]. Programme Name — Organisation
 • Cost: [🆓 FREE or 💰 PAID — be explicit]
 • ⏰ DEADLINE: [EXACT DATE — e.g. "31 July 2026" or "Rolling — apply anytime"]
 • Type: [Fellowship / Online / Conference / Workshop]
@@ -741,15 +784,7 @@ For each of the 8:
 
 Sort: FREE first, then funded, then paid.
 
-Start with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*🌍 LEADERSHIP OPPORTUNITIES — {today}*
-*🆓 = Free  💰 = Paid — Free ones listed first*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-End with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*Start with the FREE ones. Build your profile. Funded ones follow.*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*""", "leadership")
+""", "leadership")
 
     send_slack(LEADERSHIP_WEBHOOK, text)
     if sh:
@@ -766,11 +801,19 @@ End with:
 def run_certifications(sh):
     print("\n📜 SECTION 9 — CERTIFICATIONS")
 
-    if day not in ["Monday", "Wednesday", "Friday", "Sunday"]:
-        print("  ℹ️  Certifications runs Mon/Wed/Fri/Sun only — skipping")
-        return ""
 
     text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today}.
+
+WRITING RULES — follow strictly:
+- Write in clean, plain British English. No asterisks. No markdown. No em dashes.
+- No divider lines of any kind (no ---, no ===, no ***).
+- No bold or italic markers.
+- No AI preamble such as "Let me compile" or "Here are" or "Certainly".
+- Go straight into the content. Start with the first item directly.
+- Use numbered lists (1. 2. 3.) for multiple items, not bullet symbols.
+- Separate sections with a single blank line only.
+- Write as a sharp, informed human assistant — not a language model.
+
 
 Find certification and learning opportunities for Ayam.
 
@@ -812,22 +855,13 @@ For each of the 6:
 • Financial aid: [if Coursera — "Apply for aid at coursera.org/financial-aid"]
 • Link: [direct enrolment URL]
 
-*CURRENT FOCUS REMINDER:*
+Current focus reminder:
 Primary: IBM Data Science Professional Certificate — Coursera
 Secondary: WHO OpenWHO digital health courses — free
 These directly support the Health Data Science MSc application.
 
 
-Start with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*📜 CERTIFICATIONS & LEARNING — {today}*
-*🆓 = Free  💰 = Paid*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-End with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*Start here: coursera.org/professional-certificates/ibm-data-science*
-*Apply for financial aid — takes 5 minutes. Saves you $49/month.*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*""", "certifications")
+""", "certifications")
 
     send_slack(CERTIFICATIONS_WEBHOOK, text)
     if sh:
@@ -844,6 +878,17 @@ def run_weekly_review(sh):
         return ""
     print("\n📊 WEEKLY REVIEW — Sunday")
     text = ask_with_search(f"""You are AXIS, Ayam Samuel's chief of staff. Today is {today} — Sunday.
+
+WRITING RULES — follow strictly:
+- Write in clean, plain British English. No asterisks. No markdown. No em dashes.
+- No divider lines of any kind (no ---, no ===, no ***).
+- No bold or italic markers.
+- No AI preamble such as "Let me compile" or "Here are" or "Certainly".
+- Go straight into the content. Start with the first item directly.
+- Use numbered lists (1. 2. 3.) for multiple items, not bullet symbols.
+- Separate sections with a single blank line only.
+- Write as a sharp, informed human assistant — not a language model.
+
 
 Write Ayam's weekly review and next week plan.
 
@@ -895,13 +940,7 @@ Real and specific — not motivational fluff.]
 
 
 Start with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*📊 AXIS WEEKLY REVIEW — {today}*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-End with:
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*
-*New week. Fresh start. Execute.*
-*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*""", "weekly review")
+""", "weekly review")
 
     send_slack(FOLLOWUPS_WEBHOOK, text)
     if sh:
@@ -926,16 +965,22 @@ SECTION_META = {
 
 
 def clean_for_email(text):
-    """Convert Slack markdown to readable HTML"""
+    """Convert text to clean readable HTML — strip all AI formatting"""
     if not text:
         return ""
     import re as _re
-    text = _re.sub(r'[━─]{3,}', '', text)
-    text = _re.sub(r'\*([^*\n]+)\*', r'<strong>\1</strong>', text)
-    text = _re.sub(r'_([^_\n]+)_', r'<em>\1</em>', text)
+    # Strip all markdown formatting
+    text = _re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    text = _re.sub(r'\*([^*\n]+)\*', r'\1', text)
+    text = _re.sub(r'_([^_\n]+)_', r'\1', text)
+    text = _re.sub(r'[━─═]{3,}', '', text)
+    text = _re.sub(r'(?m)^---+$', '', text)
+    text = _re.sub(r'(?m)^>\s*', '', text)
+    text = text.replace('—', '-').replace('–', '-')
+    # Make URLs clickable
     text = _re.sub(
         r'(https?://[^\s<>"]+)',
-        r'<a href="\1" style="color:#9EA1DC;text-decoration:none;word-break:break-all;">\1</a>',
+        r'<a href="\1" style="color:#555;text-decoration:underline;word-break:break-all;">\1</a>',
         text
     )
     text = text.replace('\n', '<br>')
