@@ -117,11 +117,21 @@ def send_slack(webhook, text):
         time.sleep(1)
 
 
-def ask(prompt, label=""):
-    print(f"  🤖 Generating {label}...")
+# ─────────────────────────────────────────
+# MODELS
+# Sonnet — sections that affect income, brand, scholarships
+# Haiku  — informational sections (news, followups, certs, leadership)
+# ─────────────────────────────────────────
+SONNET = "claude-sonnet-4-6"
+HAIKU  = "claude-haiku-4-5-20251001"
+
+
+def ask(prompt, label="", model=HAIKU):
+    tag = "sonnet" if "sonnet" in model else "haiku"
+    print(f"  🤖 Generating {label} [{tag}]...")
     try:
         r = client.messages.create(
-            model="claude-sonnet-4-6",
+            model=model,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -133,12 +143,13 @@ def ask(prompt, label=""):
         return ""
 
 
-def ask_with_search(prompt, label=""):
+def ask_with_search(prompt, label="", model=SONNET):
     """Ask Claude with web search — gets real-time data"""
-    print(f"  🌐 Generating {label} (with web search)...")
+    tag = "sonnet" if "sonnet" in model else "haiku"
+    print(f"  🌐 Generating {label} [{tag}] (web search)...")
     try:
         r = client.messages.create(
-            model="claude-sonnet-4-6",
+            model=model,
             max_tokens=3000,
             tools=[{"type": "web_search_20250305", "name": "web_search"}],
             messages=[{"role": "user", "content": prompt}]
@@ -152,13 +163,13 @@ def ask_with_search(prompt, label=""):
         if searches:
             print(f"  🔍 {searches} web search(es) performed")
         if len(text.strip()) < 100:
-            print("  ⚠️  Output too short — falling back to standard")
-            return ask(prompt, label)
+            print("  ⚠️  Output too short — falling back")
+            return ask(prompt, label, model=model)
         print(f"  ✅ Generated ({len(text)} chars)")
         return text.strip()
     except Exception as e:
         print(f"  ❌ Web search failed: {e} — falling back")
-        return ask(prompt, label)
+        return ask(prompt, label, model=model)
 
 
 def pause(seconds=90):
@@ -456,7 +467,7 @@ Data centre news, cloud update, or major infrastructure deal.
 One specific tool launched this week. Name, what it does, link.
 
 For each item: section number and name, headline in bold, two sentence summary, one sentence on why it matters to Ayam specifically.
-Keep under 3000 characters total.""", "news briefing")
+Keep under 3000 characters total.""", "news briefing", model=HAIKU)
 
     send_slack(BRIEFING_WEBHOOK, text)
     return text
@@ -672,7 +683,7 @@ Did you send five outreach messages?
 Do you have any responses to follow up on?
 Is your Google Sheets tracker updated?
 
-End with one honest sentence about why following up matters more than applying.""", "follow-up reminders")
+End with one honest sentence about why following up matters more than applying.""", "follow-up reminders", model=HAIKU)
 
     send_slack(FOLLOWUPS_WEBHOOK, text)
     return text
@@ -758,7 +769,7 @@ Key eligibility requirements.
 One sentence on why Ayam fits, referencing his WHO and NUNSA profile.
 Direct URL.
 
-List free opportunities first.""", "leadership")
+List free opportunities first.""", "leadership", model=HAIKU)
 
     send_slack(LEADERSHIP_WEBHOOK, text)
     if sh:
@@ -802,7 +813,7 @@ Deadline if time-limited, otherwise "Always available".
 Estimated time to complete.
 Why it matters — how it helps the Health Data Science MSc or Ayamtek.
 How to get financial aid if on Coursera.
-Direct enrolment link.""", "certifications")
+Direct enrolment link.""", "certifications", model=HAIKU)
 
     send_slack(CERTIFICATIONS_WEBHOOK, text)
     if sh:
@@ -842,7 +853,7 @@ Chevening Scholarship — opens August, due October. This week's prep task.
 LSHTM MSc Health Data Science — applications open September. This week's research task.
 IBM Data Science Certificate — current progress reminder.
 
-End with one honest, specific observation about what matters most this week.""", "weekly review")
+End with one honest, specific observation about what matters most this week.""", "weekly review", model=HAIKU)
 
     send_slack(FOLLOWUPS_WEBHOOK, text)
     if sh:
